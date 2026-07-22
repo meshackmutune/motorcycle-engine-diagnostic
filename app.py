@@ -86,6 +86,73 @@ st.markdown(f"""
         backdrop-filter: blur(6px);
     }}
 
+    /* Top bar */
+    .block-container {{
+        padding-top: 1.2rem;
+    }}
+    .topbar {{
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: linear-gradient(90deg, {COLORS['surface']} 0%, {COLORS['surface_2']} 100%);
+        border: 1px solid {COLORS['border']};
+        border-radius: 12px;
+        padding: 14px 22px;
+        margin-bottom: 22px;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+    }}
+    .topbar-left {{
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }}
+    .topbar-logo {{
+        font-size: 1.6rem;
+        line-height: 1;
+    }}
+    .topbar-title {{
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: {COLORS['text']};
+        letter-spacing: -0.01em;
+    }}
+    .topbar-tag {{
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        color: {COLORS['accent_2']};
+        border: 1px solid {COLORS['accent']};
+        border-radius: 6px;
+        padding: 2px 7px;
+        margin-left: 8px;
+        vertical-align: middle;
+    }}
+    .topbar-right {{
+        display: flex;
+        align-items: center;
+        gap: 18px;
+    }}
+    .topbar-meta {{
+        text-align: right;
+        line-height: 1.2;
+    }}
+    .topbar-meta-label {{
+        font-size: 0.68rem;
+        color: {COLORS['text_dim']};
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }}
+    .topbar-meta-value {{
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: {COLORS['text']};
+    }}
+    .topbar-divider {{
+        width: 1px;
+        height: 30px;
+        background: {COLORS['border']};
+    }}
+
     /* Typography */
     h1, h2, h3 {{
         letter-spacing: -0.02em;
@@ -356,8 +423,42 @@ with st.sidebar:
 
 
 # ============================================================
-# HEADER
+# TOP BAR
 # ============================================================
+status_badge = (
+    '<span class="badge badge-success">● MODEL READY</span>'
+    if model_loaded else
+    '<span class="badge badge-danger">● MODEL ERROR</span>'
+)
+
+st.markdown(
+    f"""
+    <div class="topbar">
+        <div class="topbar-left">
+            <div class="topbar-logo">🏍️</div>
+            <div>
+                <span class="topbar-title">Acoustic Diagnostics AI</span>
+                <span class="topbar-tag">PRO</span>
+            </div>
+        </div>
+        <div class="topbar-right">
+            <div class="topbar-meta">
+                <div class="topbar-meta-label">Diagnostics Run</div>
+                <div class="topbar-meta-value">{len(st.session_state.history)}</div>
+            </div>
+            <div class="topbar-divider"></div>
+            <div class="topbar-meta">
+                <div class="topbar-meta-label">Local Time (EAT)</div>
+                <div class="topbar-meta-value">{now_local().strftime("%H:%M:%S")}</div>
+            </div>
+            <div class="topbar-divider"></div>
+            {status_badge}
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
 st.markdown('<div class="app-title">🏍️ Motorcycle Acoustic AI Diagnostic</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="app-subtitle">Automated fault identification from engine sound, powered by an ONNX spectral classification model.</div>',
