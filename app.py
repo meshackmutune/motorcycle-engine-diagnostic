@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
-    page_title="Acoustic Diagnostics AI",
+    page_title="Motorcycle Engine Diagnostics AI",
     page_icon="🏍️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -126,7 +126,7 @@ with st.sidebar:
     st.caption("**Feature Input:** 128 Mel Bins")
     
     st.markdown("---")
-    st.markdown("**Version:** 1.0.4-prod")
+    st.markdown("**Version:** 1.0.5-prod")
 
 # --- MAIN DASHBOARD INTERFACE ---
 st.title("🏍️ Motorcycle Acoustic AI Diagnostic")
@@ -139,33 +139,47 @@ with col_left:
     st.markdown('<div class="metric-card">', unsafe_allow_html=True)
     st.subheader("1. Acoustic Input")
     
-    audio_file = st.file_uploader(
-        "Upload Engine Recording (.wav / .mp3)", 
-        type=["wav", "mp3"],
-        help="Provide a clear 3-second recording of the engine idling."
-    )
+    # Dual Input via Tabs: Live Microphone Recording & File Upload
+    tab_rec, tab_upload = st.tabs(["🎙️ Record Live", "📁 Upload File"])
     
-    if audio_file is not None:
-        st.audio(audio_file, format="audio/wav")
+    audio_source = None
+    
+    with tab_rec:
+        recorded_audio = st.audio_input("Record 3s Engine Idle")
+        if recorded_audio:
+            audio_source = recorded_audio
+            
+    with tab_upload:
+        uploaded_audio = st.file_uploader(
+            "Upload Engine Recording (.wav / .mp3)", 
+            type=["wav", "mp3"],
+            help="Provide a clear 3-second recording of the engine idling."
+        )
+        if uploaded_audio:
+            audio_source = uploaded_audio
+
+    if audio_source is not None:
+        st.audio(audio_source)
         run_analysis = st.button("⚡ Run AI Diagnostic")
     else:
         run_analysis = False
+        
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col_right:
-    if audio_file is not None and run_analysis:
+    if audio_source is not None and run_analysis:
         with st.spinner("Processing Mel-Spectrogram matrix & inferring fault states..."):
-            # Load audio
-            y, sr = librosa.load(audio_file, sr=22050)
+            # Load audio signal
+            y, sr = librosa.load(audio_source, sr=22050)
             
-            # Normalize length to 3s
+            # Normalize length to 3 seconds (66,150 samples)
             target_length = 22050 * 3
             if len(y) > target_length:
                 y = y[:target_length]
             else:
                 y = np.pad(y, (0, target_length - len(y)))
 
-            # Feature extraction
+            # Extract Mel-Spectrogram features
             mel_spec = librosa.feature.melspectrogram(
                 y=y, sr=22050, n_fft=2048, hop_length=512, n_mels=128
             )
@@ -183,7 +197,7 @@ with col_right:
             top_conf = probabilities[top_idx]
             top_class = CLASSES[top_idx]
 
-            # Threshold Guardrail
+            # 85% Confidence Threshold Guardrail
             if top_class != "Healthy Idle" and top_conf < 0.85:
                 diagnosis = "Healthy Idle / Inconclusive"
                 action_text = (
@@ -220,4 +234,4 @@ with col_right:
         st.pyplot(fig)
         
     else:
-        st.info("👈 Upload an audio file on the left panel and click **Run AI Diagnostic** to display results.")
+        st.info("👈 Record or upload an audio file on the left panel, then click **Run AI Diagnostic**.")
