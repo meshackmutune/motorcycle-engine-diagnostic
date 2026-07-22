@@ -69,6 +69,13 @@ SAMPLE_RATE = 22050
 WINDOW_SECONDS = 3
 TARGET_LENGTH = SAMPLE_RATE * WINDOW_SECONDS
 
+CLASS_COLORS = {
+    "Valve Ticking": "#f59e0b",
+    "Chain Slap": "#fb923c",
+    "Exhaust Leak": "#ef4444",
+    "Healthy Idle": "#22c55e",
+}
+
 # ============================================================
 # GLOBAL STYLES
 # ============================================================
@@ -84,73 +91,6 @@ st.markdown(f"""
     header[data-testid="stHeader"] {{
         background: rgba(11, 18, 32, 0.85);
         backdrop-filter: blur(6px);
-    }}
-
-    /* Top bar */
-    .block-container {{
-        padding-top: 1.2rem;
-    }}
-    .topbar {{
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        background: linear-gradient(90deg, {COLORS['surface']} 0%, {COLORS['surface_2']} 100%);
-        border: 1px solid {COLORS['border']};
-        border-radius: 12px;
-        padding: 14px 22px;
-        margin-bottom: 22px;
-        box-shadow: 0 4px 14px rgba(0,0,0,0.25);
-    }}
-    .topbar-left {{
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }}
-    .topbar-logo {{
-        font-size: 1.6rem;
-        line-height: 1;
-    }}
-    .topbar-title {{
-        font-size: 1.25rem;
-        font-weight: 800;
-        color: {COLORS['text']};
-        letter-spacing: -0.01em;
-    }}
-    .topbar-tag {{
-        font-size: 0.65rem;
-        font-weight: 700;
-        letter-spacing: 0.06em;
-        color: {COLORS['accent_2']};
-        border: 1px solid {COLORS['accent']};
-        border-radius: 6px;
-        padding: 2px 7px;
-        margin-left: 8px;
-        vertical-align: middle;
-    }}
-    .topbar-right {{
-        display: flex;
-        align-items: center;
-        gap: 18px;
-    }}
-    .topbar-meta {{
-        text-align: right;
-        line-height: 1.2;
-    }}
-    .topbar-meta-label {{
-        font-size: 0.68rem;
-        color: {COLORS['text_dim']};
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }}
-    .topbar-meta-value {{
-        font-size: 0.85rem;
-        font-weight: 700;
-        color: {COLORS['text']};
-    }}
-    .topbar-divider {{
-        width: 1px;
-        height: 30px;
-        background: {COLORS['border']};
     }}
 
     /* Typography */
@@ -185,6 +125,12 @@ st.markdown(f"""
         border-radius: 12px;
         padding: 22px;
         margin-bottom: 16px;
+        transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+    }}
+    .card:hover {{
+        border-color: {COLORS['accent']};
+        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.15);
+        transform: translateY(-2px);
     }}
     .card-tight {{
         background-color: {COLORS['surface']};
@@ -192,6 +138,11 @@ st.markdown(f"""
         border-radius: 12px;
         padding: 16px 20px;
         margin-bottom: 12px;
+        transition: border-color 0.25s ease, transform 0.25s ease;
+    }}
+    .card-tight:hover {{
+        border-color: {COLORS['accent_2']};
+        transform: translateX(3px);
     }}
 
     /* KPI tiles */
@@ -201,6 +152,12 @@ st.markdown(f"""
         border-radius: 10px;
         padding: 16px 18px;
         text-align: left;
+        transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
+    }}
+    .kpi:hover {{
+        border-color: {COLORS['accent']};
+        box-shadow: 0 0 0 1px {COLORS['accent']}, 0 8px 18px rgba(59, 130, 246, 0.18);
+        transform: translateY(-3px);
     }}
     .kpi-label {{
         color: {COLORS['text_dim']};
@@ -224,10 +181,17 @@ st.markdown(f"""
         font-size: 0.75rem;
         font-weight: 700;
         letter-spacing: 0.03em;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }}
+    .badge:hover {{
+        transform: scale(1.06);
     }}
     .badge-success {{ background: rgba(34,197,94,0.15); color: {COLORS['success']}; border: 1px solid rgba(34,197,94,0.35); }}
+    .badge-success:hover {{ box-shadow: 0 0 10px rgba(34,197,94,0.5); }}
     .badge-warning {{ background: rgba(245,158,11,0.15); color: {COLORS['warning']}; border: 1px solid rgba(245,158,11,0.35); }}
+    .badge-warning:hover {{ box-shadow: 0 0 10px rgba(245,158,11,0.5); }}
     .badge-danger  {{ background: rgba(239,68,68,0.15);  color: {COLORS['danger']};  border: 1px solid rgba(239,68,68,0.35); }}
+    .badge-danger:hover {{ box-shadow: 0 0 10px rgba(239,68,68,0.5); }}
 
     /* Diagnostic result panel */
     .result-panel {{
@@ -266,15 +230,59 @@ st.markdown(f"""
         width: 100%;
     }}
 
-    /* Progress bars */
+    /* Progress bars (fallback) */
     .stProgress > div > div > div > div {{
         background-color: {COLORS['accent']};
+    }}
+
+    /* Custom color-coded confidence bars */
+    .cbar-row {{
+        margin-bottom: 12px;
+    }}
+    .cbar-head {{
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.82rem;
+        margin-bottom: 5px;
+    }}
+    .cbar-name {{
+        font-weight: 600;
+        color: {COLORS['text']};
+    }}
+    .cbar-pct {{
+        font-weight: 700;
+    }}
+    .cbar-track {{
+        width: 100%;
+        height: 10px;
+        background: {COLORS['surface_2']};
+        border: 1px solid {COLORS['border']};
+        border-radius: 999px;
+        overflow: hidden;
+    }}
+    .cbar-fill {{
+        height: 100%;
+        border-radius: 999px;
+        transition: width 0.6s ease, filter 0.2s ease;
+    }}
+    .cbar-track:hover .cbar-fill {{
+        filter: brightness(1.25);
     }}
 
     /* Tabs */
     .stTabs [data-baseweb="tab"] {{
         color: {COLORS['text_dim']};
         font-weight: 600;
+        transition: color 0.2s ease;
+    }}
+    .stTabs [data-baseweb="tab"]:hover {{
+        color: {COLORS['accent_2']};
+    }}
+    .stTabs [aria-selected="true"] {{
+        color: {COLORS['accent_2']} !important;
+    }}
+    .stTabs [data-baseweb="tab-highlight"] {{
+        background-color: {COLORS['accent']} !important;
     }}
 
     /* Footer */
@@ -303,6 +311,22 @@ def kpi_tile(label: str, value: str) -> str:
     <div class="kpi">
         <div class="kpi-label">{label}</div>
         <div class="kpi-value">{value}</div>
+    </div>
+    """
+
+
+def confidence_bar(class_name: str, prob: float) -> str:
+    color = CLASS_COLORS.get(class_name, COLORS["accent"])
+    pct = prob * 100
+    return f"""
+    <div class="cbar-row">
+        <div class="cbar-head">
+            <span class="cbar-name">{class_name}</span>
+            <span class="cbar-pct" style="color:{color};">{pct:.1f}%</span>
+        </div>
+        <div class="cbar-track">
+            <div class="cbar-fill" style="width:{pct:.1f}%; background:{color};"></div>
+        </div>
     </div>
     """
 
@@ -423,42 +447,8 @@ with st.sidebar:
 
 
 # ============================================================
-# TOP BAR
+# HEADER
 # ============================================================
-status_badge = (
-    '<span class="badge badge-success">● MODEL READY</span>'
-    if model_loaded else
-    '<span class="badge badge-danger">● MODEL ERROR</span>'
-)
-
-st.markdown(
-    f"""
-    <div class="topbar">
-        <div class="topbar-left">
-            <div class="topbar-logo">🏍️</div>
-            <div>
-                <span class="topbar-title">Acoustic Diagnostics AI</span>
-                <span class="topbar-tag">PRO</span>
-            </div>
-        </div>
-        <div class="topbar-right">
-            <div class="topbar-meta">
-                <div class="topbar-meta-label">Diagnostics Run</div>
-                <div class="topbar-meta-value">{len(st.session_state.history)}</div>
-            </div>
-            <div class="topbar-divider"></div>
-            <div class="topbar-meta">
-                <div class="topbar-meta-label">Local Time (EAT)</div>
-                <div class="topbar-meta-value">{now_local().strftime("%H:%M:%S")}</div>
-            </div>
-            <div class="topbar-divider"></div>
-            {status_badge}
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
 st.markdown('<div class="app-title">🏍️ Motorcycle Acoustic AI Diagnostic</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="app-subtitle">Automated fault identification from engine sound, powered by an ONNX spectral classification model.</div>',
@@ -592,8 +582,10 @@ with col_right:
             # --- Confidence distribution ---
             st.markdown('<div class="card">', unsafe_allow_html=True)
             st.markdown('<div class="section-label">Confidence Distribution</div>', unsafe_allow_html=True)
-            for i, class_name in enumerate(CLASSES):
-                st.progress(float(probabilities[i]), text=f"{class_name} — {probabilities[i]:.1%}")
+            bars_html = "".join(
+                confidence_bar(class_name, probabilities[i]) for i, class_name in enumerate(CLASSES)
+            )
+            st.markdown(bars_html, unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
             # --- Spectrogram ---
