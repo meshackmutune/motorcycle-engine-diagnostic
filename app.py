@@ -26,17 +26,17 @@ st.set_page_config(
 # THEME / DESIGN TOKENS
 # ============================================================
 COLORS = {
-    "bg":        "#0b1220",
-    "surface":   "#141b2d",
-    "surface_2": "#1b2438",
-    "border":    "#26314a",
-    "text":      "#e8ecf4",
-    "text_dim":  "#8a94a8",
-    "accent":    "#3b82f6",
-    "accent_2":  "#60a5fa",
-    "success":   "#22c55e",
-    "warning":   "#f59e0b",
-    "danger":    "#ef4444",
+    "bg":        "#0a0e1a",
+    "surface":   "#131a2c",
+    "surface_2": "#1a2338",
+    "border":    "#2a3350",
+    "text":      "#f1f4fb",
+    "text_dim":  "#8b96b3",
+    "accent":    "#7c5cff",
+    "accent_2":  "#22d3ee",
+    "success":   "#2dd4a7",
+    "warning":   "#fbbf24",
+    "danger":    "#fb5b8f",
 }
 
 CLASSES = ["Valve Ticking", "Chain Slap", "Exhaust Leak", "Healthy Idle"]
@@ -70,10 +70,10 @@ WINDOW_SECONDS = 3
 TARGET_LENGTH = SAMPLE_RATE * WINDOW_SECONDS
 
 CLASS_COLORS = {
-    "Valve Ticking": "#f59e0b",
+    "Valve Ticking": "#fbbf24",
     "Chain Slap": "#fb923c",
-    "Exhaust Leak": "#ef4444",
-    "Healthy Idle": "#22c55e",
+    "Exhaust Leak": "#fb5b8f",
+    "Healthy Idle": "#2dd4a7",
 }
 
 # ============================================================
@@ -82,7 +82,9 @@ CLASS_COLORS = {
 st.markdown(f"""
 <style>
     .stApp {{
-        background-color: {COLORS['bg']};
+        background: radial-gradient(circle at 15% 0%, rgba(124, 92, 255, 0.10), transparent 45%),
+                    radial-gradient(circle at 85% 15%, rgba(34, 211, 238, 0.08), transparent 40%),
+                    {COLORS['bg']};
         color: {COLORS['text']};
     }}
 
@@ -101,7 +103,11 @@ st.markdown(f"""
         font-size: 2.1rem;
         font-weight: 800;
         margin-bottom: 0;
-        color: {COLORS['text']};
+        background: linear-gradient(90deg, {COLORS['text']} 0%, {COLORS['accent_2']} 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        display: inline-block;
     }}
     .app-subtitle {{
         color: {COLORS['text_dim']};
@@ -116,6 +122,15 @@ st.markdown(f"""
         letter-spacing: 0.08em;
         color: {COLORS['accent_2']};
         margin-bottom: 6px;
+    }}
+    .section-label::before {{
+        content: "";
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, {COLORS['accent']}, {COLORS['accent_2']});
+        margin-right: 6px;
     }}
 
     /* Cards */
@@ -207,19 +222,20 @@ st.markdown(f"""
 
     /* Buttons */
     .stButton>button {{
-        background: linear-gradient(135deg, {COLORS['accent']} 0%, #1d4ed8 100%);
+        background: linear-gradient(135deg, {COLORS['accent']} 0%, #5b3df0 45%, {COLORS['accent_2']} 100%);
         color: white;
         border: none;
         border-radius: 8px;
         padding: 12px 24px;
         font-weight: 700;
         width: 100%;
-        transition: all 0.2s ease;
+        transition: all 0.25s ease;
         letter-spacing: 0.01em;
     }}
     .stButton>button:hover {{
-        background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-        box-shadow: 0 0 14px rgba(59, 130, 246, 0.45);
+        background: linear-gradient(135deg, #6a4bff 0%, #4c31d6 45%, #38e4fb 100%);
+        box-shadow: 0 0 18px rgba(124, 92, 255, 0.5);
+        transform: translateY(-1px);
     }}
     .stDownloadButton>button {{
         background: transparent;
