@@ -26,12 +26,12 @@ st.set_page_config(
 # THEME / DESIGN TOKENS
 # ============================================================
 COLORS = {
-    "bg":        "#0a0e1a",
-    "surface":   "#131a2c",
-    "surface_2": "#1a2338",
-    "border":    "#2a3350",
-    "text":      "#f1f4fb",
-    "text_dim":  "#8b96b3",
+    "bg":        "#071a14",
+    "surface":   "#0f2b21",
+    "surface_2": "#14372a",
+    "border":    "#1f4a3a",
+    "text":      "#eef7f2",
+    "text_dim":  "#8fae9d",
     "accent":    "#7c5cff",
     "accent_2":  "#22d3ee",
     "success":   "#2dd4a7",
@@ -82,8 +82,8 @@ CLASS_COLORS = {
 st.markdown(f"""
 <style>
     .stApp {{
-        background: radial-gradient(circle at 15% 0%, rgba(124, 92, 255, 0.10), transparent 45%),
-                    radial-gradient(circle at 85% 15%, rgba(34, 211, 238, 0.08), transparent 40%),
+        background: radial-gradient(circle at 15% 0%, rgba(45, 212, 167, 0.10), transparent 45%),
+                    radial-gradient(circle at 85% 15%, rgba(34, 211, 238, 0.07), transparent 40%),
                     {COLORS['bg']};
         color: {COLORS['text']};
     }}
