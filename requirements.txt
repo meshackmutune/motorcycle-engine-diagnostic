@@ -1,0 +1,5 @@
+gradio
+onnxruntime
+librosa
+soundfile
+numpy
