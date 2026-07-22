@@ -3,235 +3,526 @@ import onnxruntime as ort
 import numpy as np
 import librosa
 import matplotlib.pyplot as plt
+from datetime import datetime
+import io
 
-# --- PAGE CONFIGURATION ---
+# ============================================================
+# PAGE CONFIGURATION
+# ============================================================
 st.set_page_config(
-    page_title="Motorcycle Engine Diagnostics AI",
+    page_title="Acoustic Diagnostics AI",
     page_icon="🏍️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- CUSTOM CSS FOR PROFESSIONAL DASHBOARD LOOK ---
-st.markdown("""
+# ============================================================
+# THEME / DESIGN TOKENS
+# ============================================================
+COLORS = {
+    "bg":        "#0b1220",
+    "surface":   "#141b2d",
+    "surface_2": "#1b2438",
+    "border":    "#26314a",
+    "text":      "#e8ecf4",
+    "text_dim":  "#8a94a8",
+    "accent":    "#3b82f6",
+    "accent_2":  "#60a5fa",
+    "success":   "#22c55e",
+    "warning":   "#f59e0b",
+    "danger":    "#ef4444",
+}
+
+CLASSES = ["Valve Ticking", "Chain Slap", "Exhaust Leak", "Healthy Idle"]
+
+REPAIRS = {
+    "Valve Ticking": {
+        "severity": "warning",
+        "summary": "Loose valve clearance detected in the acoustic signature.",
+        "action": "Inspect tappets and replace valve shims to restore clearance tolerances to OEM spec.",
+    },
+    "Chain Slap": {
+        "severity": "warning",
+        "summary": "Drive chain slack or insufficient lubrication detected.",
+        "action": "Adjust drive chain tension to spec and apply high-viscosity chain lubricant.",
+    },
+    "Exhaust Leak": {
+        "severity": "danger",
+        "summary": "Exhaust manifold leak signature detected.",
+        "action": "Check manifold bolt torque and inspect/replace the exhaust gasket.",
+    },
+    "Healthy Idle": {
+        "severity": "success",
+        "summary": "Engine is operating within normal acoustic parameters.",
+        "action": "No mechanical intervention required. Continue routine maintenance schedule.",
+    },
+}
+
+CONFIDENCE_THRESHOLD = 0.85
+SAMPLE_RATE = 22050
+WINDOW_SECONDS = 3
+TARGET_LENGTH = SAMPLE_RATE * WINDOW_SECONDS
+
+# ============================================================
+# GLOBAL STYLES
+# ============================================================
+st.markdown(f"""
 <style>
-    /* Dark Theme Core Styles */
-    .stApp {
-        background-color: #0f172a;
-        color: #f8fafc;
-    }
-    
-    /* Card Container */
-    .metric-card {
-        background-color: #1e293b;
-        border: 1px solid #334155;
+    .stApp {{
+        background-color: {COLORS['bg']};
+        color: {COLORS['text']};
+    }}
+
+    #MainMenu {{visibility: hidden;}}
+    footer {{visibility: hidden;}}
+    header[data-testid="stHeader"] {{
+        background: rgba(11, 18, 32, 0.85);
+        backdrop-filter: blur(6px);
+    }}
+
+    /* Typography */
+    h1, h2, h3 {{
+        letter-spacing: -0.02em;
+    }}
+    .app-title {{
+        font-size: 2.1rem;
+        font-weight: 800;
+        margin-bottom: 0;
+        color: {COLORS['text']};
+    }}
+    .app-subtitle {{
+        color: {COLORS['text_dim']};
+        font-size: 0.95rem;
+        margin-top: 2px;
+        margin-bottom: 1.5rem;
+    }}
+    .section-label {{
+        text-transform: uppercase;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        color: {COLORS['accent_2']};
+        margin-bottom: 6px;
+    }}
+
+    /* Cards */
+    .card {{
+        background-color: {COLORS['surface']};
+        border: 1px solid {COLORS['border']};
+        border-radius: 12px;
+        padding: 22px;
+        margin-bottom: 16px;
+    }}
+    .card-tight {{
+        background-color: {COLORS['surface']};
+        border: 1px solid {COLORS['border']};
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 12px;
+    }}
+
+    /* KPI tiles */
+    .kpi {{
+        background-color: {COLORS['surface_2']};
+        border: 1px solid {COLORS['border']};
         border-radius: 10px;
-        padding: 20px;
-        margin-bottom: 15px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-    }
-    
-    /* Primary Accent Styling */
-    .stButton>button {
-        background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+        padding: 16px 18px;
+        text-align: left;
+    }}
+    .kpi-label {{
+        color: {COLORS['text_dim']};
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }}
+    .kpi-value {{
+        font-size: 1.6rem;
+        font-weight: 800;
+        margin-top: 4px;
+        color: {COLORS['text']};
+    }}
+
+    /* Status badges */
+    .badge {{
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+    }}
+    .badge-success {{ background: rgba(34,197,94,0.15); color: {COLORS['success']}; border: 1px solid rgba(34,197,94,0.35); }}
+    .badge-warning {{ background: rgba(245,158,11,0.15); color: {COLORS['warning']}; border: 1px solid rgba(245,158,11,0.35); }}
+    .badge-danger  {{ background: rgba(239,68,68,0.15);  color: {COLORS['danger']};  border: 1px solid rgba(239,68,68,0.35); }}
+
+    /* Diagnostic result panel */
+    .result-panel {{
+        border-radius: 12px;
+        padding: 20px 22px;
+        margin-top: 10px;
+        margin-bottom: 18px;
+        border-left: 4px solid;
+    }}
+    .result-success {{ background: rgba(34,197,94,0.08); border-color: {COLORS['success']}; }}
+    .result-warning {{ background: rgba(245,158,11,0.08); border-color: {COLORS['warning']}; }}
+    .result-danger  {{ background: rgba(239,68,68,0.08);  border-color: {COLORS['danger']}; }}
+
+    /* Buttons */
+    .stButton>button {{
+        background: linear-gradient(135deg, {COLORS['accent']} 0%, #1d4ed8 100%);
         color: white;
         border: none;
         border-radius: 8px;
         padding: 12px 24px;
-        font-weight: bold;
+        font-weight: 700;
         width: 100%;
-        transition: all 0.3s ease;
-    }
-    .stButton>button:hover {
-        background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
-        box-shadow: 0 0 12px rgba(2, 132, 199, 0.5);
-    }
+        transition: all 0.2s ease;
+        letter-spacing: 0.01em;
+    }}
+    .stButton>button:hover {{
+        background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+        box-shadow: 0 0 14px rgba(59, 130, 246, 0.45);
+    }}
+    .stDownloadButton>button {{
+        background: transparent;
+        color: {COLORS['accent_2']};
+        border: 1px solid {COLORS['accent']};
+        border-radius: 8px;
+        font-weight: 600;
+        width: 100%;
+    }}
 
-    /* Hide standard header decoration */
-    header[data-testid="stHeader"] {
-        background: rgba(15, 23, 42, 0.8);
-    }
+    /* Progress bars */
+    .stProgress > div > div > div > div {{
+        background-color: {COLORS['accent']};
+    }}
+
+    /* Tabs */
+    .stTabs [data-baseweb="tab"] {{
+        color: {COLORS['text_dim']};
+        font-weight: 600;
+    }}
+
+    /* Footer */
+    .app-footer {{
+        color: {COLORS['text_dim']};
+        font-size: 0.75rem;
+        text-align: center;
+        padding-top: 28px;
+        padding-bottom: 8px;
+        border-top: 1px solid {COLORS['border']};
+        margin-top: 24px;
+    }}
 </style>
 """, unsafe_allow_html=True)
 
-# --- MODEL LOADING ---
-@st.cache_resource
+
+# ============================================================
+# HELPERS
+# ============================================================
+def badge_class(severity: str) -> str:
+    return {"success": "badge-success", "warning": "badge-warning", "danger": "badge-danger"}[severity]
+
+
+def kpi_tile(label: str, value: str) -> str:
+    return f"""
+    <div class="kpi">
+        <div class="kpi-label">{label}</div>
+        <div class="kpi-value">{value}</div>
+    </div>
+    """
+
+
+def build_report_text(diagnosis, confidence, timestamp) -> str:
+    info = REPAIRS.get(diagnosis, REPAIRS["Healthy Idle"])
+    lines = [
+        "ACOUSTIC DIAGNOSTICS AI — INSPECTION REPORT",
+        "=" * 46,
+        f"Generated: {timestamp}",
+        f"Primary Detection: {diagnosis}",
+        f"Confidence Score: {confidence:.1%}",
+        "",
+        "Summary:",
+        info["summary"],
+        "",
+        "Recommended Action:",
+        info["action"],
+        "",
+        "-" * 46,
+        "This report was generated automatically by an acoustic",
+        "machine-learning model and should be verified by a",
+        "qualified technician before service action is taken.",
+    ]
+    return "\n".join(lines)
+
+
+@st.cache_resource(show_spinner=False)
 def load_onnx_session():
     return ort.InferenceSession("motorcycle_sound_model.onnx")
 
-try:
-    session = load_onnx_session()
-    model_loaded = True
-except Exception as e:
-    model_loaded = False
-    model_error = str(e)
 
-# --- MAPS & CONSTANTS ---
-CLASSES = ["Valve Ticking", "Chain Slap", "Exhaust Leak", "Healthy Idle"]
-REPAIRS = {
-    "Valve Ticking": "**Action Required:** Loose Valve Clearance.\n\nInspect tappets and replace valve shims to correct clearance tolerances.",
-    "Chain Slap": "**Action Required:** Loose or Dry Drive Chain.\n\nAdjust drive chain tension to spec and apply high-viscosity lube.",
-    "Exhaust Leak": "**Action Required:** Exhaust Manifold Leak.\n\nCheck manifold bolt torque specs or replace worn exhaust gasket.",
-    "Healthy Idle": "**Status Normal:** Engine Operating within normal acoustic specs.\n\nNo immediate mechanical intervention required."
-}
-
-# --- VISUALIZATION GENERATOR ---
 def generate_spectrogram_plot(y, sr, mel_spec_db):
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 5))
-    fig.patch.set_facecolor('#1e293b')
-    
-    # Waveform
-    librosa.display.waveshow(y, sr=sr, ax=ax1, color='#38bdf8')
-    ax1.set_title("Time-Domain Waveform Signal", color="#94a3b8", fontsize=10, fontweight="bold")
-    ax1.set_facecolor('#0f172a')
-    ax1.tick_params(colors='#94a3b8')
-    ax1.spines['bottom'].set_color('#334155')
-    ax1.spines['top'].set_color('#334155')
-    ax1.spines['left'].set_color('#334155')
-    ax1.spines['right'].set_color('#334155')
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 5.2))
+    fig.patch.set_facecolor(COLORS["surface"])
 
-    # Spectrogram
+    librosa.display.waveshow(y, sr=sr, ax=ax1, color=COLORS["accent_2"])
+    ax1.set_title("Time-Domain Waveform", color=COLORS["text_dim"], fontsize=10, fontweight="bold", loc="left")
+    ax1.set_facecolor(COLORS["bg"])
+    ax1.tick_params(colors=COLORS["text_dim"])
+    for spine in ax1.spines.values():
+        spine.set_color(COLORS["border"])
+
     img = librosa.display.specshow(
         mel_spec_db, x_axis='time', y_axis='mel', sr=sr, ax=ax2, cmap='magma'
     )
-    ax2.set_title("Acoustic Mel-Spectrogram (Frequency Features)", color="#94a3b8", fontsize=10, fontweight="bold")
-    ax2.set_facecolor('#0f172a')
-    ax2.tick_params(colors='#94a3b8')
-    ax2.spines['bottom'].set_color('#334155')
-    ax2.spines['top'].set_color('#334155')
-    ax2.spines['left'].set_color('#334155')
-    ax2.spines['right'].set_color('#334155')
-    
+    ax2.set_title("Mel-Spectrogram (Frequency Features)", color=COLORS["text_dim"], fontsize=10, fontweight="bold", loc="left")
+    ax2.set_facecolor(COLORS["bg"])
+    ax2.tick_params(colors=COLORS["text_dim"])
+    for spine in ax2.spines.values():
+        spine.set_color(COLORS["border"])
+
     cbar = fig.colorbar(img, ax=ax2, format='%+2.0f dB')
-    cbar.ax.yaxis.set_tick_params(color='#94a3b8')
-    plt.setp(plt.getp(cbar.ax.axes, 'yticklabels'), color='#94a3b8')
+    cbar.ax.yaxis.set_tick_params(color=COLORS["text_dim"])
+    plt.setp(plt.getp(cbar.ax.axes, 'yticklabels'), color=COLORS["text_dim"])
 
     plt.tight_layout()
     return fig
 
-# --- SIDEBAR CONTROL PANEL ---
+
+# ============================================================
+# SESSION STATE
+# ============================================================
+if "history" not in st.session_state:
+    st.session_state.history = []
+
+# ============================================================
+# MODEL LOAD
+# ============================================================
+try:
+    session = load_onnx_session()
+    model_loaded = True
+    model_error = None
+except Exception as e:
+    session = None
+    model_loaded = False
+    model_error = str(e)
+
+# ============================================================
+# SIDEBAR
+# ============================================================
 with st.sidebar:
-    st.title("Control Panel")
+    st.markdown("### 🏍️ Acoustic Diagnostics AI")
+    st.caption("Engine fault detection via deep learning spectral analysis")
     st.markdown("---")
-    
-    st.markdown("### System Status")
+
+    st.markdown("**System Status**")
     if model_loaded:
-        st.success("ONNX Runtime: Ready")
+        st.markdown(
+            f'<span class="badge badge-success">● MODEL READY</span>',
+            unsafe_allow_html=True,
+        )
     else:
-        st.error(f"Model Error: {model_error}")
-        
-    st.markdown("### Audio Config")
-    st.caption("**Sample Rate:** 22,050 Hz")
-    st.caption("**Window Size:** 3.0 Seconds")
-    st.caption("**Feature Input:** 128 Mel Bins")
-    
+        st.markdown(
+            f'<span class="badge badge-danger">● MODEL ERROR</span>',
+            unsafe_allow_html=True,
+        )
+        st.error(model_error, icon="⚠️")
+
     st.markdown("---")
-    st.markdown("**Version:** 1.0.5-prod")
+    st.markdown("**Acquisition Parameters**")
+    st.caption(f"Sample rate: {SAMPLE_RATE:,} Hz")
+    st.caption(f"Analysis window: {WINDOW_SECONDS:.1f} s")
+    st.caption("Feature input: 128 Mel bins")
+    st.caption(f"Decision threshold: {CONFIDENCE_THRESHOLD:.0%}")
 
-# --- MAIN DASHBOARD INTERFACE ---
-st.title("🏍️ Motorcycle Acoustic AI Diagnostic")
-st.markdown("Automated fault identification via deep learning spectral analysis.")
+    st.markdown("---")
+    st.markdown("**Session**")
+    st.caption(f"Diagnostics run: {len(st.session_state.history)}")
+    if st.session_state.history:
+        if st.button("Clear session history", use_container_width=True):
+            st.session_state.history = []
+            st.rerun()
 
-# Layout Columns
-col_left, col_right = st.columns([1, 1.8])
+    st.markdown("---")
+    st.caption("Version 1.1.0 · Build prod")
+    st.caption("© Acoustic Diagnostics AI")
 
+
+# ============================================================
+# HEADER
+# ============================================================
+st.markdown('<div class="app-title">🏍️ Motorcycle Acoustic AI Diagnostic</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="app-subtitle">Automated fault identification from engine sound, powered by an ONNX spectral classification model.</div>',
+    unsafe_allow_html=True,
+)
+
+col_left, col_right = st.columns([1, 1.7], gap="large")
+
+# ============================================================
+# LEFT COLUMN — INPUT
+# ============================================================
 with col_left:
-    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-    st.subheader("1. Acoustic Input")
-    
-    # Dual Input via Tabs: Live Microphone Recording & File Upload
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.markdown('<div class="section-label">Step 1 — Acoustic Input</div>', unsafe_allow_html=True)
+    st.markdown("Provide a clear recording of the engine idling (a 3-second clip works best).")
+
     tab_rec, tab_upload = st.tabs(["🎙️ Record Live", "📁 Upload File"])
-    
+
     audio_source = None
-    
     with tab_rec:
-        recorded_audio = st.audio_input("Record 3s Engine Idle")
+        recorded_audio = st.audio_input("Record engine idle")
         if recorded_audio:
             audio_source = recorded_audio
-            
+
     with tab_upload:
         uploaded_audio = st.file_uploader(
-            "Upload Engine Recording (.wav / .mp3)", 
+            "Upload engine recording (.wav / .mp3)",
             type=["wav", "mp3"],
-            help="Provide a clear 3-second recording of the engine idling."
+            help="Provide a clear recording of the engine idling.",
         )
         if uploaded_audio:
             audio_source = uploaded_audio
 
     if audio_source is not None:
         st.audio(audio_source)
-        run_analysis = st.button("⚡ Run AI Diagnostic")
+        run_analysis = st.button("⚡ Run AI Diagnostic", disabled=not model_loaded)
+        if not model_loaded:
+            st.caption("⚠️ Diagnostic disabled until the model loads successfully.")
     else:
         run_analysis = False
-        
+        st.info("Record or upload a clip to begin.", icon="🎧")
+
     st.markdown('</div>', unsafe_allow_html=True)
 
-with col_right:
-    if audio_source is not None and run_analysis:
-        with st.spinner("Processing Mel-Spectrogram matrix & inferring fault states..."):
-            # Load audio signal
-            y, sr = librosa.load(audio_source, sr=22050)
-            
-            # Normalize length to 3 seconds (66,150 samples)
-            target_length = 22050 * 3
-            if len(y) > target_length:
-                y = y[:target_length]
-            else:
-                y = np.pad(y, (0, target_length - len(y)))
-
-            # Extract Mel-Spectrogram features
-            mel_spec = librosa.feature.melspectrogram(
-                y=y, sr=22050, n_fft=2048, hop_length=512, n_mels=128
+    if st.session_state.history:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<div class="section-label">Recent Diagnostics</div>', unsafe_allow_html=True)
+        for entry in reversed(st.session_state.history[-5:]):
+            st.markdown(
+                f"""<div class="card-tight" style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <div style="font-weight:600;">{entry['diagnosis']}</div>
+                            <div style="color:{COLORS['text_dim']}; font-size:0.78rem;">{entry['timestamp']}</div>
+                        </div>
+                        <span class="badge {badge_class(entry['severity'])}">{entry['confidence']:.0%}</span>
+                    </div>""",
+                unsafe_allow_html=True,
             )
-            mel_spec_db = librosa.power_to_db(mel_spec, ref=np.max)
-            input_tensor = mel_spec_db[np.newaxis, np.newaxis, :, :130].astype(np.float32)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-            # Model inference
-            outputs = session.run(None, {"mel_spectrogram": input_tensor})
-            raw_logits = outputs[0][0]
-            
-            exp_logits = np.exp(raw_logits - np.max(raw_logits))
-            probabilities = exp_logits / exp_logits.sum()
+# ============================================================
+# RIGHT COLUMN — RESULTS
+# ============================================================
+with col_right:
+    if audio_source is not None and run_analysis and model_loaded:
+        try:
+            with st.spinner("Processing Mel-spectrogram and running inference..."):
+                y, sr = librosa.load(audio_source, sr=SAMPLE_RATE)
 
-            top_idx = np.argmax(probabilities)
-            top_conf = probabilities[top_idx]
-            top_class = CLASSES[top_idx]
+                if len(y) > TARGET_LENGTH:
+                    y = y[:TARGET_LENGTH]
+                else:
+                    y = np.pad(y, (0, TARGET_LENGTH - len(y)))
 
-            # 85% Confidence Threshold Guardrail
-            if top_class != "Healthy Idle" and top_conf < 0.85:
-                diagnosis = "Healthy Idle / Inconclusive"
-                action_text = (
-                    f"**Low Confidence Flag ({top_conf:.1%}):** Signal indicates slight sound variance "
-                    f"resembling {CLASSES[top_idx]}, but failed to pass the 85% certainty threshold."
+                mel_spec = librosa.feature.melspectrogram(
+                    y=y, sr=SAMPLE_RATE, n_fft=2048, hop_length=512, n_mels=128
                 )
-            else:
-                diagnosis = top_class
-                action_text = REPAIRS[top_class]
+                mel_spec_db = librosa.power_to_db(mel_spec, ref=np.max)
+                input_tensor = mel_spec_db[np.newaxis, np.newaxis, :, :130].astype(np.float32)
 
-        # Diagnostic KPIs
-        st.subheader("2. Diagnostic Summary")
-        kpi_col1, kpi_col2 = st.columns(2)
-        
-        with kpi_col1:
-            st.metric("Primary Detection", diagnosis)
-        with kpi_col2:
-            st.metric("Confidence Score", f"{top_conf:.1%}")
+                outputs = session.run(None, {"mel_spectrogram": input_tensor})
+                raw_logits = outputs[0][0]
 
-        # Action Panel
-        if diagnosis == "Healthy Idle":
-            st.success(action_text)
-        else:
-            st.warning(action_text)
+                exp_logits = np.exp(raw_logits - np.max(raw_logits))
+                probabilities = exp_logits / exp_logits.sum()
 
-        # Probability Breakdown
-        st.markdown("### Confidence Distribution")
-        for i, class_name in enumerate(CLASSES):
-            st.progress(float(probabilities[i]), text=f"{class_name}: {probabilities[i]:.1%}")
+                top_idx = int(np.argmax(probabilities))
+                top_conf = float(probabilities[top_idx])
+                top_class = CLASSES[top_idx]
 
-        # Visualizations
-        st.markdown("### Signal Spectrum Analysis")
-        fig = generate_spectrogram_plot(y, sr, mel_spec_db)
-        st.pyplot(fig)
-        
+                if top_class != "Healthy Idle" and top_conf < CONFIDENCE_THRESHOLD:
+                    diagnosis = "Healthy Idle / Inconclusive"
+                    severity = "warning"
+                    summary = f"Signal weakly resembles {top_class} but did not clear the {CONFIDENCE_THRESHOLD:.0%} confidence threshold."
+                    action = "Consider recording a longer or cleaner sample and re-running the diagnostic."
+                else:
+                    diagnosis = top_class
+                    info = REPAIRS[top_class]
+                    severity = info["severity"]
+                    summary = info["summary"]
+                    action = info["action"]
+
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            st.session_state.history.append({
+                "diagnosis": diagnosis,
+                "confidence": top_conf,
+                "severity": severity,
+                "timestamp": timestamp,
+            })
+
+            # --- Summary header ---
+            st.markdown('<div class="section-label">Step 2 — Diagnostic Summary</div>', unsafe_allow_html=True)
+            kpi_col1, kpi_col2, kpi_col3 = st.columns(3)
+            with kpi_col1:
+                st.markdown(kpi_tile("Primary Detection", diagnosis), unsafe_allow_html=True)
+            with kpi_col2:
+                st.markdown(kpi_tile("Confidence Score", f"{top_conf:.1%}"), unsafe_allow_html=True)
+            with kpi_col3:
+                st.markdown(kpi_tile("Analyzed At", timestamp.split(" ")[1]), unsafe_allow_html=True)
+
+            # --- Result panel ---
+            st.markdown(
+                f"""<div class="result-panel result-{severity}">
+                        <span class="badge {badge_class(severity)}">{diagnosis.upper()}</span>
+                        <p style="margin-top:12px; margin-bottom:6px; font-weight:600;">{summary}</p>
+                        <p style="margin:0; color:{COLORS['text_dim']};">{action}</p>
+                    </div>""",
+                unsafe_allow_html=True,
+            )
+
+            # --- Confidence distribution ---
+            st.markdown('<div class="card">', unsafe_allow_html=True)
+            st.markdown('<div class="section-label">Confidence Distribution</div>', unsafe_allow_html=True)
+            for i, class_name in enumerate(CLASSES):
+                st.progress(float(probabilities[i]), text=f"{class_name} — {probabilities[i]:.1%}")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            # --- Spectrogram ---
+            st.markdown('<div class="card">', unsafe_allow_html=True)
+            st.markdown('<div class="section-label">Signal Spectrum Analysis</div>', unsafe_allow_html=True)
+            fig = generate_spectrogram_plot(y, sr, mel_spec_db)
+            st.pyplot(fig, use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            # --- Export ---
+            report_text = build_report_text(diagnosis, top_conf, timestamp)
+            st.download_button(
+                "⬇️ Download Inspection Report (.txt)",
+                data=report_text,
+                file_name=f"acoustic_report_{timestamp.replace(' ', '_').replace(':', '-')}.txt",
+                mime="text/plain",
+            )
+
+        except Exception as e:
+            st.error(f"Analysis failed: {e}", icon="🚫")
+
     else:
-        st.info("👈 Record or upload an audio file on the left panel, then click **Run AI Diagnostic**.")
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<div class="section-label">Step 2 — Diagnostic Summary</div>', unsafe_allow_html=True)
+        st.info(
+            "👈 Record or upload an audio file on the left panel, then click **Run AI Diagnostic** "
+            "to view the fault classification, confidence breakdown, and spectrogram.",
+            icon="🎧",
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# ============================================================
+# FOOTER
+# ============================================================
+st.markdown(
+    '<div class="app-footer">Acoustic Diagnostics AI is a decision-support tool. '
+    'Results should be verified by a qualified technician before any repair action is taken.</div>',
+    unsafe_allow_html=True,
+)
