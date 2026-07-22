@@ -2,7 +2,6 @@ import gradio as gr
 import onnxruntime as ort
 import numpy as np
 import librosa
-import librosa.display
 import matplotlib.pyplot as plt
 
 # 1. Load ONNX model session
