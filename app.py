@@ -52,7 +52,7 @@ st.markdown("""
         background: rgba(15, 23, 42, 0.8);
     }
 </style>
-""", unsafe_allow_html=unsafe_allow_html)
+""", unsafe_allow_html=True)
 
 # --- MODEL LOADING ---
 @st.cache_resource
@@ -111,7 +111,6 @@ def generate_spectrogram_plot(y, sr, mel_spec_db):
 
 # --- SIDEBAR CONTROL PANEL ---
 with st.sidebar:
-    st.image("https://img.icons8.com/color/96/motorcycle.png", width=64)
     st.title("Control Panel")
     st.markdown("---")
     
