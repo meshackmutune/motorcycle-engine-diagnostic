@@ -4,7 +4,13 @@ import numpy as np
 import librosa
 import matplotlib.pyplot as plt
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import io
+
+LOCAL_TZ = ZoneInfo("Africa/Nairobi")
+
+def now_local() -> datetime:
+    return datetime.now(LOCAL_TZ)
 
 # ============================================================
 # PAGE CONFIGURATION
@@ -454,7 +460,7 @@ with col_right:
                     summary = info["summary"]
                     action = info["action"]
 
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            timestamp = now_local().strftime("%Y-%m-%d %H:%M:%S")
             st.session_state.history.append({
                 "diagnosis": diagnosis,
                 "confidence": top_conf,
